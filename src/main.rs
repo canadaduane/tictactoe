@@ -1,9 +1,11 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+use std::env;
 use std::sync::atomic::{AtomicUsize, Ordering};
 #[macro_use]
 extern crate rocket;
-use rocket::State;
+use rocket::{State, Config};
+use rocket::config::Environment;
 use rocket::response::status::NotFound;
 
 struct Board{
@@ -93,8 +95,18 @@ fn put_board(board_id: usize, board: State<Board>, p1: usize, p2: usize, p3: usi
   format!("{}.{}.{}.{}.{}.{}.{}.{}.{}", p1, p2, p3, p4, p5, p6, p7, p8, p9)
 }
 
+/// Look up our server port number in PORT, for compatibility with Heroku.
+fn get_server_port() -> u16 {
+  env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8080)
+}
+
 fn main() {
-  rocket::ignite()
+  let config = Config::build(Environment::Production)
+    .port(get_server_port())
+    .finalize()
+    .unwrap();
+
+  rocket::custom(config)
     .manage(Board {
       a1: AtomicUsize::new(0),
       a2: AtomicUsize::new(0),
@@ -115,5 +127,6 @@ fn main() {
       b7: AtomicUsize::new(0),
       b8: AtomicUsize::new(0),
       b9: AtomicUsize::new(0), })
-    .mount("/", routes![get_board, put_board]).launch();
+    .mount("/", routes![get_board, put_board])
+    .launch();
 }
