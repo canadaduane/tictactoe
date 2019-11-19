@@ -1,0 +1,1 @@
+web: ./server/target/release/tic-tac-toe
