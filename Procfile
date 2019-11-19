@@ -1,1 +1,1 @@
-web: ./server/target/release/tic-tac-toe
+web: ./target/release/tic-tac-toe
