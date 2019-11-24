@@ -5,6 +5,7 @@
 #include <ESP8266HTTPClient.h>
 #include "Settings.h"
 
+#define DEBUG_TTT 1
 #define POLLING_INTERVAL_MS 500
 
 using namespace ace_button;
@@ -130,12 +131,14 @@ void spinnerIncrement();
 // User Interaction Functions
 void handleEvent(AceButton*, uint8_t, uint8_t);
 
-// Other Functions
+// Light Functions
 void lightPixel(int player, int index);
 void lightAdminPixel(int index);
 void clearBoardAdminPixels();
 void lightAllPixels(uint32_t color);
 uint32_t rainbowColor(unsigned char cycle);
+
+// Other Functions
 void transitionTo(MajorMode newMode);
 void getBoardState(uint8_t localBoard, uint8_t remoteBoard);
 void setBoardState(uint8_t localBoard, uint8_t remoteBoard);
@@ -144,6 +147,11 @@ void setBoardState(uint8_t localBoard, uint8_t remoteBoard);
 
 void setup() 
 {
+#ifdef DEBUG_TTT
+  Serial.begin(115200);
+  Serial.println("Starting TicTacToe...");
+#endif
+  
   WiFi.mode(WIFI_STA);
 
   http.setReuse(true);

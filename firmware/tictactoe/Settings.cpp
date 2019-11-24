@@ -3,8 +3,6 @@
 
 Settings::Settings() {
   _player = 0;
-  _shouldSave = false;
-  _player_param = new WiFiManagerParameter("player", "Player (0 or 1)", "0", 1);
 }
 
 uint8_t Settings::getPlayer() {
@@ -17,28 +15,44 @@ uint8_t Settings::getOpponent() {
 
 void Settings::setupAccessPortal() {
   _wm.setConfigPortalBlocking(false);
+  _wm.setDebugOutput(false);
   _wm.setCountry("US");
   _wm.setConnectTimeout(5);
-  _wm.addParameter(_player_param);
 
-  std::function<void()> lambdaSaveParams = std::bind(&Settings::saveParamsCallback, this);
-  _wm.setSaveParamsCallback(lambdaSaveParams);
+//  Serial.begin(115200);
+//
+//  if (SPIFFS.begin()) {
+//    Serial.println("mounted file system");
+//    if (SPIFFS.exists("/config.json")) {
+//      //file exists, reading and loading
+//      Serial.println("reading config file");
+//      File configFile = SPIFFS.open("/player.txt", "r");
+//      if (configFile) {
+//        Serial.println("opened config file");
+//        String data = configFile.readString();
+//
+//        Serial.print("config file size: ");
+//        Serial.println(data.length());
+//
+//        if (data.length() >= 1) {
+//          if (data.charAt(0) == '0') _player = 0;
+//          if (data.charAt(0) == '1') _player = 1;
+//          Serial.print("player is ");
+//          Serial.println(_player, HEX);
+//        }
+//
+//        configFile.close();
+//      }
+//    }
+//  } else {
+//    Serial.println("failed to mount FS");
+//  }
 
   _wm.startConfigPortal();
 }
 
 void Settings::loopAccessPortal() {
   _wm.process();
-  if (_shouldSave) {
-    const char* value = _player_param->getValue();
-    if (value[0] == '0') _player = 0;
-    if (value[0] == '1') _player = 1;
-    // TODO: save to FS
-  }
-}
-
-void Settings::saveParamsCallback() {
-  _shouldSave = true;
 }
 
 bool Settings::connect() {

@@ -19,9 +19,7 @@ class Settings {
 
   private:
     uint8_t _player;
-    bool _shouldSave;
     WiFiManager _wm;
-    WiFiManagerParameter *_player_param;
 };
 
 #endif
