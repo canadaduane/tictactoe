@@ -3,22 +3,24 @@
 
 Settings::Settings() {
   _player = 0;
+  _initializedWiFi = false;
+  _configLoaded = false;
 }
 
-uint8_t Settings::getPlayer() {
-  return _player;
+void Settings::initializeWiFi() {
+  if (!_initializedWiFi) {
+    _wm.setConfigPortalBlocking(false);
+    _wm.setDebugOutput(false);
+    _wm.setCountry("US");
+    _wm.setConnectTimeout(5);
+
+    _initializedWiFi = true;
+  }
 }
 
-uint8_t Settings::getOpponent() {
-  return !_player;
-}
-
-void Settings::setupAccessPortal() {
-  _wm.setConfigPortalBlocking(false);
-  _wm.setDebugOutput(false);
-  _wm.setCountry("US");
-  _wm.setConnectTimeout(5);
-
+void Settings::readFsConfig() {
+  _configLoaded = true;
+  
 //  Serial.begin(115200);
 //
 //  if (SPIFFS.begin()) {
@@ -47,7 +49,19 @@ void Settings::setupAccessPortal() {
 //  } else {
 //    Serial.println("failed to mount FS");
 //  }
+}
 
+uint8_t Settings::getPlayer() {
+  if (!_configLoaded) readFsConfig();
+  return _player;
+}
+
+uint8_t Settings::getOpponent() {
+  return !_player;
+}
+
+void Settings::setupAccessPortal() {
+  initializeWiFi();
   _wm.startConfigPortal();
 }
 
@@ -56,6 +70,7 @@ void Settings::loopAccessPortal() {
 }
 
 bool Settings::connect() {
+  initializeWiFi();
   return _wm.autoConnect("AutoConnectAP");
 }
 

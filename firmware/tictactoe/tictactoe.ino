@@ -197,27 +197,25 @@ void loop()
 
 /*=== Major Mode Functions ===*/
 void boot() {
-//  transitionTo(Play);
   if (sparkleSwipeState == 0) {
+    lightAllPixels(pixels.Color(5, 5, 0));
+    autoConnectSuccess = false; // settings.connect();
     lightAllPixels(pixels.Color(5, 0, 0));
-    autoConnectSuccess = settings.connect();
-  } else {
-    if (autoConnectSuccess) {
-      for (int i = 0; i < 18; i++) sparkleHue[i] += 30 + i;
-    } else {
-      for (int i = 0; i < 18; i++) sparkleHue[i] += 5;      
-    }
   }
 
-  pixels.clear();
-  for (int i = 0; i < 18; i++) {
-    uint8_t lum = ((sin((double)sparkleSwipeState/1000 * PI - PI/2) - 1) / 2 + 1) * 50;
-    pixels.setPixelColor(
-      board[i % 2][i / 2].lightIndex,
-      pixels.ColorHSV(sparkleHue[i], 255, lum)
-    );
+  // Sparkle when we're connected
+  if (autoConnectSuccess) {
+    for (int i = 0; i < 18; i++) sparkleHue[i] += 20 + i * 3;
+    pixels.clear();
+    for (int i = 0; i < 18; i++) {
+      uint8_t lum = ((sin((double)sparkleSwipeState/1000 * PI - PI/2) - 1) / 2 + 1) * 50;
+      pixels.setPixelColor(
+        board[i % 2][i / 2].lightIndex,
+        pixels.ColorHSV(sparkleHue[i], 255, lum)
+      );
+    }
+    pixels.show();
   }
-  pixels.show();
 
   if (sparkleSwipeState++ > 2000) {
     transitionTo(Play);

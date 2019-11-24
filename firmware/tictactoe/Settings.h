@@ -18,8 +18,13 @@ class Settings {
     void reset();
 
   private:
+    bool _initializedWiFi;
+    bool _configLoaded;
     uint8_t _player;
     WiFiManager _wm;
+
+    void initializeWiFi();
+    void readFsConfig();
 };
 
 #endif
