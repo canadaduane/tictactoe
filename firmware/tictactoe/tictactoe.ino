@@ -4,8 +4,6 @@
 #include <Ticker.h>
 #include <ESP8266HTTPClient.h>
 
-// Which board am I (0 or 1)
-#define I_AM 0
 #define POLLING_INTERVAL_MS 500
 
 using namespace ace_button;
@@ -84,9 +82,11 @@ Adafruit_NeoPixel pixels =
 
 AceButton buttons[9];
 
-WiFiManager wm;
 WiFiClient client;
 HTTPClient http;
+
+WiFiManager wm;
+WiFiManagerParameter custom_player("player", "Player (0 or 1)", "0", 1);
 
 Ticker blinkTicker;
 Ticker spinnerTicker;
@@ -97,6 +97,8 @@ ConnectionStatus connStatus = Unattempted;
 MajorMode mode = Boot,
           nextMode = Boot;
 
+// Which player/board am I? (0 or 1)
+uint8_t I_AM = 0;
 uint8_t enterConfigureModeButtonState = 0;
 uint8_t spinnerState = 0;
 
@@ -140,13 +142,14 @@ void spinnerIncrement();
 // Other Functions
 void handleEvent(AceButton*, uint8_t, uint8_t);
 uint32_t rainbowColor(unsigned char cycle);
-void configModeCallback (WiFiManager *myWiFiManager);
-void configureWifi();
 void transitionTo(MajorMode newMode);
 void lightAllPixels(uint32_t color);
 void getBoardState(uint8_t localBoard, uint8_t remoteBoard);
 void setBoardState(uint8_t localBoard, uint8_t remoteBoard);
-
+void setupAccessPortal();
+void loopAccessPortal();
+void saveParamsCallback();
+void configModeCallback(WiFiManager *myWiFiManager);
 
 /*=== Setup and Loop Functions ===*/
 
@@ -156,6 +159,8 @@ void setup()
   wm.setConfigPortalBlocking(false);
   wm.setCountry("US");
   wm.setConnectTimeout(5);
+  wm.addParameter(&custom_player);
+  wm.setSaveParamsCallback(saveParamsCallback);
 
   http.setReuse(true);
   
@@ -295,7 +300,7 @@ void spinnerToAdminPixels() {
 void configure() {
   spinnerToAdminPixels();
 
-  wm.process();
+  loopAccessPortal();
   
   // Show LED Pixels
   pixels.clear();
@@ -417,11 +422,6 @@ uint32_t rainbowColor(unsigned char cycle) {
   return pixels.ColorHSV((uint16_t)cycle << 8, 255, 30);
 }
 
-// Gets called when WiFiManager enters configuration mode
-void configModeCallback (WiFiManager *myWiFiManager) {
-  blinkTicker.attach(0.2, toggleLED);
-}
-
 void transitionTo(MajorMode newMode) {
   nextMode = newMode;
 }
@@ -431,7 +431,7 @@ void finalizeTransition() {
     if (nextMode == Play) {
       clearBoardAdminPixels();
     } else if (nextMode == Configure) {
-      wm.startConfigPortal();
+      setupAccessPortal();
       spinnerState = 0;
     } else {
     }
@@ -478,4 +478,23 @@ void setBoardState(uint8_t localBoard, uint8_t remoteBoard) {
   );
   http.PUT((const uint8_t)NULL, 0);
   http.end();  
+}
+
+void setupAccessPortal() {
+  wm.startConfigPortal();
+}
+
+void loopAccessPortal() {
+  wm.process();
+}
+
+void saveParamsCallback () {
+  const char* value = custom_player.getValue();
+  if (value[0] == '0') I_AM = 0;
+  if (value[0] == '1') I_AM = 1;
+}
+
+// Gets called when WiFiManager enters configuration mode
+void configModeCallback (WiFiManager *myWiFiManager) {
+  blinkTicker.attach(0.2, toggleLED);
 }
