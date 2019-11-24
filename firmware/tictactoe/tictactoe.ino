@@ -1,8 +1,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <AceButton.h>
-#include <WiFiManager.h>
 #include <Ticker.h>
 #include <ESP8266HTTPClient.h>
+#include "Settings.h"
 
 #define POLLING_INTERVAL_MS 500
 
@@ -29,15 +29,6 @@ typedef enum {
   Diagnose,
   Configure
 } MajorMode;
-
-typedef enum {
-  Unattempted = 0,
-  WifiStarted,
-  WifiSuccess,
-  WifiFailed,
-  ServerSuccess,
-  ServerFailed
-} ConnectionStatus;
 
 typedef enum {
   Transparent = 0,
@@ -85,20 +76,17 @@ AceButton buttons[9];
 WiFiClient client;
 HTTPClient http;
 
-WiFiManager wm;
-WiFiManagerParameter custom_player("player", "Player (0 or 1)", "0", 1);
 
 Ticker blinkTicker;
 Ticker spinnerTicker;
 Ticker enterConfigureModeButtonStateTicker;
 
-ConnectionStatus connStatus = Unattempted;
 
 MajorMode mode = Boot,
           nextMode = Boot;
 
-// Which player/board am I? (0 or 1)
-uint8_t I_AM = 0;
+Settings settings;
+
 uint8_t enterConfigureModeButtonState = 0;
 uint8_t spinnerState = 0;
 
@@ -135,32 +123,27 @@ void diagnose();
 void configure();
 
 // Ticker Functions
-void toggleLED();
 void clearEnterConfigureModeButtonState();
 void spinnerIncrement();
 
-// Other Functions
+// User Interaction Functions
 void handleEvent(AceButton*, uint8_t, uint8_t);
+
+// Other Functions
+void lightPixel(int player, int index);
+void lightAdminPixel(int index);
+void clearBoardAdminPixels();
+void lightAllPixels(uint32_t color);
 uint32_t rainbowColor(unsigned char cycle);
 void transitionTo(MajorMode newMode);
-void lightAllPixels(uint32_t color);
 void getBoardState(uint8_t localBoard, uint8_t remoteBoard);
 void setBoardState(uint8_t localBoard, uint8_t remoteBoard);
-void setupAccessPortal();
-void loopAccessPortal();
-void saveParamsCallback();
-void configModeCallback(WiFiManager *myWiFiManager);
 
 /*=== Setup and Loop Functions ===*/
 
 void setup() 
 {
   WiFi.mode(WIFI_STA);
-  wm.setConfigPortalBlocking(false);
-  wm.setCountry("US");
-  wm.setConnectTimeout(5);
-  wm.addParameter(&custom_player);
-  wm.setSaveParamsCallback(saveParamsCallback);
 
   http.setReuse(true);
   
@@ -208,7 +191,7 @@ void boot() {
 //  transitionTo(Play);
   if (sparkleSwipeState == 0) {
     lightAllPixels(pixels.Color(5, 0, 0));
-    autoConnectSuccess = wm.autoConnect("AutoConnectAP");
+    autoConnectSuccess = settings.connect();
   } else {
     if (autoConnectSuccess) {
       for (int i = 0; i < 18; i++) sparkleHue[i] += 30 + i;
@@ -232,28 +215,7 @@ void boot() {
   }
 }
 
-void lightAdminPixel(int index) {
-  for (int p = 0; p < 2; p++) {
-    pixels.setPixelColor(board[p][index].lightIndex, pixels.Color(0, 0, 30));
-  }
-}
 
-void lightPixel(int player, int index) {
-  switch (board[player][index].mode) {
-    case Lit:
-      pixels.setPixelColor(
-        board[player][index].lightIndex,
-        board[player][index].litColor
-      );
-      break;
-    case Rainbow:
-      pixels.setPixelColor(
-        board[player][index].lightIndex,
-        rainbowColor(board[player][index].cycle++)
-      );
-      break;
-  }
-}
 
 unsigned long lastServerUpdate = 0;
 bool serverSetState = true;
@@ -264,9 +226,9 @@ void play() {
     if (now - lastServerUpdate > POLLING_INTERVAL_MS) {
       lastServerUpdate = now;
       if (serverSetState) {
-        setBoardState(0, I_AM);
+        setBoardState(0, settings.getPlayer());
       } else {
-        getBoardState(1, !I_AM);
+        getBoardState(1, settings.getOpponent());
       }
       serverSetState = !serverSetState;
     }
@@ -300,7 +262,7 @@ void spinnerToAdminPixels() {
 void configure() {
   spinnerToAdminPixels();
 
-  loopAccessPortal();
+  settings.loopAccessPortal();
   
   // Show LED Pixels
   pixels.clear();
@@ -316,20 +278,8 @@ void configure() {
 
 
 /*=== Ticker Functions ===*/
-// Toggle LED state
-void toggleLED() {
-  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
-  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
-}
-
-void clearBoardAdminPixels() {
-  for (int i = 0; i < 9; i++) {
-    boardAdmin[i].adminLit = false;
-  }
-}
-
-// Reset enterConfigureModeButtonState counter
 void clearEnterConfigureModeButtonState() {
+  // Reset enterConfigureModeButtonState counter
   enterConfigureModeButtonState = 0;
   spinnerState = 0;
   clearBoardAdminPixels();
@@ -340,7 +290,7 @@ void spinnerIncrement() {
 }
 
 
-/*=== Other Functions ===*/
+/*=== User Interaction Functions ===*/
 
 void handleButtonBoot(int8_t index, uint8_t eventType) {
   switch (eventType) {
@@ -380,7 +330,7 @@ void handleButtonConfigure(int8_t index, uint8_t eventType) {
     case AceButton::kEventLongPressed:
       if (index == 4) {
         // middle button
-        wm.resetSettings();
+        settings.reset();
         ESP.restart();
         delay(2000);
       }
@@ -418,6 +368,43 @@ void handleEvent(AceButton* button, uint8_t eventType, uint8_t buttonState) {
   }
 }
 
+/*=== Other Functions ===*/
+
+void lightPixel(int player, int index) {
+  switch (board[player][index].mode) {
+    case Lit:
+      pixels.setPixelColor(
+        board[player][index].lightIndex,
+        board[player][index].litColor
+      );
+      break;
+    case Rainbow:
+      pixels.setPixelColor(
+        board[player][index].lightIndex,
+        rainbowColor(board[player][index].cycle++)
+      );
+      break;
+  }
+}
+
+void lightAdminPixel(int index) {
+  for (int p = 0; p < 2; p++) {
+    pixels.setPixelColor(board[p][index].lightIndex, pixels.Color(0, 0, 30));
+  }
+}
+
+void clearBoardAdminPixels() {
+  for (int i = 0; i < 9; i++) {
+    boardAdmin[i].adminLit = false;
+  }
+}
+
+void lightAllPixels(uint32_t color) {
+  pixels.clear();
+  for (int i = 0; i < 18; i++) pixels.setPixelColor(board[i % 2][i / 2].lightIndex, color);
+  pixels.show();
+}
+
 uint32_t rainbowColor(unsigned char cycle) {
   return pixels.ColorHSV((uint16_t)cycle << 8, 255, 30);
 }
@@ -431,18 +418,12 @@ void finalizeTransition() {
     if (nextMode == Play) {
       clearBoardAdminPixels();
     } else if (nextMode == Configure) {
-      setupAccessPortal();
+      settings.setupAccessPortal();
       spinnerState = 0;
     } else {
     }
     mode = nextMode;
   }
-}
-
-void lightAllPixels(uint32_t color) {
-  pixels.clear();
-  for (int i = 0; i < 18; i++) pixels.setPixelColor(board[i % 2][i / 2].lightIndex, color);
-  pixels.show();
 }
 
 void getBoardState(uint8_t localBoard, uint8_t remoteBoard) {
@@ -478,23 +459,4 @@ void setBoardState(uint8_t localBoard, uint8_t remoteBoard) {
   );
   http.PUT((const uint8_t)NULL, 0);
   http.end();  
-}
-
-void setupAccessPortal() {
-  wm.startConfigPortal();
-}
-
-void loopAccessPortal() {
-  wm.process();
-}
-
-void saveParamsCallback () {
-  const char* value = custom_player.getValue();
-  if (value[0] == '0') I_AM = 0;
-  if (value[0] == '1') I_AM = 1;
-}
-
-// Gets called when WiFiManager enters configuration mode
-void configModeCallback (WiFiManager *myWiFiManager) {
-  blinkTicker.attach(0.2, toggleLED);
 }
