@@ -1,3 +1,4 @@
+#include <FS.h>
 #include <Adafruit_NeoPixel.h>
 #include <AceButton.h>
 #include <Ticker.h>
