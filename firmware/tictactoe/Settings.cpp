@@ -1,19 +1,19 @@
 #include "Settings.h"
 #include <FS.h>
 
+TicTacToeConfig tconfig;
+
 Settings::Settings() {
-  _player = 0;
   _initializedWiFi = false;
   _configLoaded = false;
 }
 
 void Settings::initializeWiFi() {
   if (!_initializedWiFi) {
-    _wm.setConfigPortalBlocking(false);
-    _wm.setDebugOutput(false);
-    _wm.setCountry("US");
-    _wm.setConnectTimeout(5);
-
+    _cm.setAPName("TicTacToe");
+    _cm.setAPFilename("/index.html");
+    _cm.addParameter("player", &tconfig.player);
+    
     _initializedWiFi = true;
   }
 }
@@ -53,27 +53,30 @@ void Settings::readFsConfig() {
 
 uint8_t Settings::getPlayer() {
   if (!_configLoaded) readFsConfig();
-  return _player;
+  return tconfig.player;
 }
 
 uint8_t Settings::getOpponent() {
-  return !_player;
+  return !tconfig.player;
 }
 
 void Settings::setupAccessPortal() {
   initializeWiFi();
-  _wm.startConfigPortal();
+  _cm.begin(tconfig);
 }
 
 void Settings::loopAccessPortal() {
-  _wm.process();
+  _cm.loop();
 }
 
 bool Settings::connect() {
-  initializeWiFi();
-  return _wm.autoConnect("AutoConnectAP");
+  setupAccessPortal();
+  return WiFi.status() == WL_CONNECTED;
+//  return _cm.wifiConnected();
+//  initializeWiFi();
+//  return _wm.autoConnect("AutoConnectAP");
 }
 
 void Settings::reset() {
-  _wm.resetSettings();
+  _cm.clearWifiSettings(false);
 }

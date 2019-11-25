@@ -3,24 +3,16 @@
 #include <AceButton.h>
 #include <Ticker.h>
 #include <ESP8266HTTPClient.h>
+#include <ConfigManager.h>
+
 #include "Settings.h"
+#include "Pins.h"
 
 #define DEBUG_TTT 1
 #define POLLING_INTERVAL_MS 500
 
 using namespace ace_button;
 
-#define PIN0 16
-#define PIN1 5
-#define PIN2 4
-#define PIN3 0
-// PIN4 is the LED
-#define PIN5 14
-#define PIN6 12
-#define PIN7 13
-#define PIN8 15
-#define PINRX 3
-#define PINTX 1
 
 #define NUMPIXELS 18
 #define PIN_STRIP PIN6
@@ -199,7 +191,7 @@ void loop()
 void boot() {
   if (sparkleSwipeState == 0) {
     lightAllPixels(pixels.Color(5, 5, 0));
-    autoConnectSuccess = false; // settings.connect();
+    autoConnectSuccess = settings.connect();
     lightAllPixels(pixels.Color(5, 0, 0));
   }
 

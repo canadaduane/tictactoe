@@ -1,7 +1,11 @@
 #ifndef __SETTINGS_H__
 #define __SETTINGS_H__
 
-#include <WiFiManager.h>
+#include <ConfigManager.h>
+
+typedef struct {
+  uint8_t player;
+} TicTacToeConfig;
 
 class Settings {
   public:
@@ -20,8 +24,7 @@ class Settings {
   private:
     bool _initializedWiFi;
     bool _configLoaded;
-    uint8_t _player;
-    WiFiManager _wm;
+    ConfigManager _cm;
 
     void initializeWiFi();
     void readFsConfig();
