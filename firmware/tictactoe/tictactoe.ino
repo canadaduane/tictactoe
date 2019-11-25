@@ -1,5 +1,4 @@
 #include <FS.h>
-#include <Adafruit_NeoPixel.h>
 #include <AceButton.h>
 #include <Ticker.h>
 #include <ESP8266HTTPClient.h>
@@ -7,15 +6,12 @@
 
 #include "Settings.h"
 #include "Pins.h"
+#include "PixelState.h"
 
-#define DEBUG_TTT 1
+#define DEBUG_TTT 0
 #define POLLING_INTERVAL_MS 500
 
 using namespace ace_button;
-
-
-#define NUMPIXELS 18
-#define PIN_STRIP PIN6
 
 typedef enum {
   Boot = 0,
@@ -24,25 +20,12 @@ typedef enum {
   Configure
 } MajorMode;
 
-typedef enum {
-  Transparent = 0,
-  Dark,
-  Lit,
-  Rainbow
-} pixelMode;
-
 typedef struct {
   unsigned char pin;
   unsigned char pull;
   unsigned char released;
 } buttonMapping;
 
-typedef struct {
-  pixelMode mode;
-  uint32_t litColor;
-  unsigned char cycle;
-  unsigned char lightIndex;
-} pixelState;
 
 typedef struct {
   bool adminLit;
@@ -62,8 +45,6 @@ buttonMapping buttonMap[9] = {
   {PIN7,INPUT_PULLUP,HIGH}
 };
 
-Adafruit_NeoPixel pixels =
-  Adafruit_NeoPixel(NUMPIXELS, PIN_STRIP, NEO_GRB + NEO_KHZ800);
 
 AceButton buttons[9];
 
@@ -89,20 +70,7 @@ uint16_t sparkleSwipeState = 0;
 uint16_t sparkleHue[18];
 bool autoConnectSuccess = false;
 
-pixelState board[2][9] = {
-  // Player 1
-  {
-    {Dark,pixels.Color(50,0,0),0,17}, {Dark,pixels.Color(50,0,0),0,15}, {Dark,pixels.Color(50,0,0),0,13},
-    {Dark,pixels.Color(50,0,0),0,6}, {Dark,pixels.Color(50,0,0),0,8}, {Dark,pixels.Color(50,0,0),0,10},
-    {Dark,pixels.Color(50,0,0),0,5}, {Dark,pixels.Color(50,0,0),0,3}, {Dark,pixels.Color(50,0,0),0,1}
-  },
-  // Player 2
-  {
-    {Dark,pixels.Color(0,50,0),0,16}, {Dark,pixels.Color(0,50,0),0,14}, {Dark,pixels.Color(0,50,0),0,12},
-    {Dark,pixels.Color(0,50,0),0,7}, {Dark,pixels.Color(0,50,0),0,9}, {Dark,pixels.Color(0,50,0),0,11},
-    {Dark,pixels.Color(0,50,0),0,4}, {Dark,pixels.Color(0,50,0),0,2}, {Dark,pixels.Color(0,50,0),0,0}
-  }
-};
+
 
 pixelAdminState boardAdmin[9] = {
     {false}, {false}, {false},
@@ -433,7 +401,7 @@ void getBoardState(uint8_t localBoard, uint8_t remoteBoard) {
     String payload = http.getString();
     if (payload.length() == 17) {
       for (int i = 0; i < 18; i+=2) {
-        board[localBoard][i/2].mode = (pixelMode)(payload.charAt(i) - '0');
+        board[localBoard][i/2].mode = (PixelMode)(payload.charAt(i) - '0');
       }
     }
   }
